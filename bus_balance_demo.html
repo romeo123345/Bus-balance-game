@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>버스에서 살아남기 — 웹 데모</title>
+<style>
+:root{color-scheme:dark;--bg:#101820;--panel:#1b2833;--line:#435563;--accent:#f3bd52;--muted:#a9bbc7}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;touch-action:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;z-index:2;left:12px;top:12px;right:12px;display:flex;gap:8px;align-items:flex-start;justify-content:space-between;pointer-events:none}
+.panel{background:#111c25dd;border:1px solid #ffffff20;border-radius:12px;padding:9px 12px;backdrop-filter:blur(8px);box-shadow:0 5px 18px #0003}
+.brand{font-weight:800;font-size:14px;letter-spacing:-.3px}.sub{font-size:11px;color:var(--muted);margin-top:2px}
+.stats{display:flex;gap:12px;font-size:12px;white-space:nowrap}.stats strong{display:block;font-size:18px;color:#fff}
+#meterWrap{position:fixed;z-index:2;left:50%;top:82px;transform:translateX(-50%);width:min(320px,72vw);pointer-events:none}
+.meterLabel{display:flex;justify-content:space-between;font-size:11px;color:#eaf0f4;margin-bottom:5px;text-shadow:0 1px 4px #000}
+.meter{height:10px;background:#19232c;border:1px solid #ffffff55;border-radius:99px;overflow:hidden}
+#meterFill{height:100%;width:0%;background:#66d69a;border-radius:99px;transition:background .15s}
+#message{position:fixed;z-index:3;left:50%;top:25%;transform:translateX(-50%);width:max-content;max-width:88vw;text-align:center;color:white;font-weight:800;font-size:clamp(19px,4vw,28px);text-shadow:0 3px 12px #000;pointer-events:none}
+#help{position:fixed;z-index:2;right:12px;bottom:12px;max-width:250px;font-size:11px;color:#e5edf2;line-height:1.55;text-align:right;text-shadow:0 1px 4px #000;pointer-events:none}
+#joystick{position:fixed;z-index:4;left:22px;bottom:28px;width:124px;height:124px;border:1px solid #ffffff55;border-radius:50%;background:#111c2570;display:none;touch-action:none}
+#stick{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:#f3bd52dd;border:2px solid #fff9;box-shadow:0 3px 10px #0005}
+#brace{position:fixed;z-index:4;right:22px;bottom:35px;width:84px;height:84px;border-radius:50%;border:2px solid #fff8;background:#e0a93cdd;color:#18212a;font-weight:900;font-size:14px;display:none;touch-action:none}
+#buttons{position:fixed;z-index:4;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:8px}
+button{font:inherit;border:1px solid #ffffff35;border-radius:10px;background:#182630eF;color:white;padding:10px 14px;font-weight:700}
+#startOverlay{position:fixed;z-index:5;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(#071018bb,#071018dd)}
+.card{width:min(430px,100%);border:1px solid #ffffff25;border-radius:20px;padding:24px;background:#17232df5;box-shadow:0 20px 80px #0008}
+h1{font-size:clamp(27px,7vw,39px);line-height:1.05;margin:0 0 8px}p{color:#c0cdd5;line-height:1.55;font-size:14px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0}.pill{font-size:11px;border:1px solid #ffffff24;color:#d8e1e7;padding:5px 8px;border-radius:99px}
+#startBtn{width:100%;padding:14px;background:var(--accent);color:#1a2229;border:0;font-size:16px}
+.small{font-size:11px;color:#91a3af;margin-top:12px}
+@media(pointer:coarse){#joystick,#brace{display:block}#help{right:12px;bottom:132px;max-width:170px}#buttons{bottom:10px;left:auto;right:12px;transform:none;flex-direction:column}#buttons button{padding:8px 10px}}
+@media(max-width:430px){.stats{gap:7px}.stats strong{font-size:16px}.brand{font-size:12px}.sub{font-size:10px}.hud{left:8px;right:8px;top:8px}.panel{padding:8px 9px}#meterWrap{top:70px}}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="3D 느낌의 버스 균형 게임"></canvas>
+<div class="hud">
+  <div class="panel"><div class="brand">🚌 버스에서 살아남기</div><div class="sub">웹 프로토타입 · 1차 데모</div></div>
+  <div class="panel stats"><div>생존<strong id="time">0.0초</strong></div><div>기록<strong id="best">—</strong></div><div>정류장<strong id="stop">0/3</strong></div></div>
+</div>
+<div id="meterWrap"><div class="meterLabel"><span>균형</span><span id="state">안정</span></div><div class="meter"><div id="meterFill"></div></div></div>
+<div id="message">출발 준비!</div>
+<div id="help">WASD / 방향키: 몸의 중심 이동<br>Space: 자세 회복<br>모바일: 왼쪽 조이스틱 + 회복 버튼</div>
+<div id="joystick"><div id="stick"></div></div>
+<button id="brace">자세<br>회복</button>
+<div id="buttons"><button id="restart">↻ 다시 시작</button><button id="pause">Ⅱ 일시정지</button></div>
+<div id="startOverlay"><div class="card">
+  <div class="pills"><span class="pill">3인칭 물리 코미디</span><span class="pill">키보드 · 모바일 터치</span></div>
+  <h1>버스에서<br>살아남기</h1>
+  <p>급출발, 급정거, 급커브가 이어지는 시내버스 안에서 넘어지지 말고 버텨라. 몸의 중심을 반대로 옮겨 균형을 회복하고, 목적지까지 살아남자.</p>
+  <p><b>PC:</b> WASD 또는 방향키로 균형 잡기, Space로 순간 회복<br><b>모바일:</b> 왼쪽 조이스틱으로 조작, 오른쪽 버튼으로 회복</p>
+  <button id="startBtn">버스에 탑승하기</button>
+  <div class="small">현재는 그래픽과 물리 감각을 확인하기 위한 초기 웹 데모입니다.</div>
+</div></div>
+<script>
+(() => {
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+let W=innerWidth,H=innerHeight,DPR=1;
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+let running=false,paused=false,ended=false,elapsed=0,best=Number(localStorage.getItem('busBalanceBest')||0),stops=0;
+let x=0,vx=0,z=0,vz=0,leanX=0,leanZ=0,stress=0,shake=0,impactFlash=0;
+let busAX=0,busAZ=0,eventTimer=1.4,eventName='출발',eventPower=0,cycle=0,braceCooldown=0;
+const keys={};let joy={x:0,y:0,active:false,pid:null};let braceTouch=false;
+$('best').textContent=best?best.toFixed(1)+'초':'—';
+function reset(){running=true;paused=false;ended=false;elapsed=0;stops=0;x=0;vx=0;z=0;vz=0;leanX=0;leanZ=0;stress=0;shake=0;impactFlash=0;busAX=0;busAZ=0;eventTimer=1.8;eventName='출발';eventPower=0;cycle=0;braceCooldown=0;$('message').textContent='꽉 잡으세요!';$('pause').textContent='Ⅱ 일시정지';$('startOverlay').style.display='none';}
+function endGame(){ended=true;running=false;$('message').textContent='넘어졌다! '+elapsed.toFixed(1)+'초 버팀';if(elapsed>best){best=elapsed;localStorage.setItem('busBalanceBest',best);$('best').textContent=best.toFixed(1)+'초';}}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function input(){let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;let iz=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)-joy.y;let m=Math.hypot(ix,iz);if(m>1){ix/=m;iz/=m}return{x:ix,z:iz}}
+function triggerBrace(){if(braceCooldown>0||!running||paused)return;braceCooldown=2.5;stress=Math.max(0,stress-25);vx*=.62;vz*=.62;leanX*=.55;leanZ*=.55;impactFlash=.35;$('message').textContent='으아아— 버텼다!';setTimeout(()=>{if(running&&!paused)$('message').textContent=eventName;},650)}
+addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='Space')triggerBrace();if(e.code==='KeyR')reset();if(e.code==='Escape')togglePause()});
+addEventListener('keyup',e=>keys[e.code]=false);
+function togglePause(){if(!running&&!paused)return;paused=!paused;$('pause').textContent=paused?'▶ 계속':'Ⅱ 일시정지';$('message').textContent=paused?'일시정지':eventName}
+$('pause').addEventListener('click',togglePause);$('restart').addEventListener('click',reset);$('startBtn').addEventListener('click',reset);
+$('brace').addEventListener('pointerdown',e=>{e.preventDefault();braceTouch=true;triggerBrace()});
+const joyEl=$('joystick'),stick=$('stick');
+function joyMove(e){const r=joyEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,max=39,m=Math.hypot(dx,dy);if(m>max){dx=dx/m*max;dy=dy/m*max}joy.x=dx/max;joy.y=dy/max;stick.style.transform=`translate(${dx}px,${dy}px)`}
+joyEl.addEventListener('pointerdown',e=>{e.preventDefault();joy.active=true;joy.pid=e.pointerId;joyEl.setPointerCapture(e.pointerId);joyMove(e)});
+joyEl.addEventListener('pointermove',e=>{if(joy.active&&e.pointerId===joy.pid)joyMove(e)});
+function joyEnd(e){if(joy.active&&e.pointerId===joy.pid){joy.active=false;joy.x=0;joy.y=0;stick.style.transform='translate(0,0)'}}
+joyEl.addEventListener('pointerup',joyEnd);joyEl.addEventListener('pointercancel',joyEnd);
+function worldEvent(dt){
+ eventTimer-=dt;cycle+=dt;
+ // Simulated route: smooth motion interrupted by familiar bus manoeuvres.
+ busAX=Math.sin(cycle*.72)*.24;busAZ=Math.cos(cycle*.43)*.10;
+ if(eventTimer<=0){
+   const events=[
+    {n:'급출발!',x:0,z:-2.1,d:.78},
+    {n:'급정거!',x:0,z:3.0,d:.62},
+    {n:'좌회전!',x:2.35,z:0,d:.95},
+    {n:'우회전!',x:-2.55,z:0,d:.95},
+    {n:'방지턱!',x:(Math.random()-.5)*1.4,z:1.6,d:.5},
+    {n:'갑자기 끼어들었다!',x:(Math.random()-.5)*2.3,z:(Math.random()-.5)*2,d:.55}
+   ];
+   const ev=events[Math.floor(Math.random()*events.length)];eventName=ev.n;busAX=ev.x;busAZ=ev.z;eventPower=ev.d;eventTimer=2.0+Math.random()*1.35;$('message').textContent=eventName;
+   if(elapsed>0&&Math.floor(elapsed/18)>stops){stops=Math.min(3,Math.floor(elapsed/18));$('stop').textContent=stops+'/3';}
+ }
+ if(eventPower>0){eventPower-=dt;const fade=clamp(eventPower/.25,0,1);busAX*=fade;busAZ*=fade}
+}
+function update(dt){
+ if(!running||paused||ended)return;
+ elapsed+=dt;braceCooldown=Math.max(0,braceCooldown-dt);worldEvent(dt);
+ const inp=input();
+ // Balance controls apply counterforce against bus inertia.
+ const ax=inp.x*7.2-busAX*1.12-vx*1.25;
+ const az=inp.z*7.0-busAZ*1.08-vz*1.2;
+ vx+=ax*dt;vz+=az*dt;vx=clamp(vx,-3.6,3.6);vz=clamp(vz,-3.8,3.8);
+ x+=vx*dt;z+=vz*dt;
+ // The aisle and standing area are narrow; hitting the edge destabilizes the player.
+ if(Math.abs(x)>1.22){vx*=-.28;stress+=18*dt;impactFlash=.12}
+ if(Math.abs(z)>1.15){vz*=-.25;stress+=13*dt}
+ x=clamp(x,-1.35,1.35);z=clamp(z,-1.28,1.28);
+ leanX=clamp(-vx*.16+busAX*.14,-.8,.8);
+ leanZ=clamp(vz*.14-busAZ*.12,-.8,.8);
+ const motion=Math.hypot(vx,vz),jerk=Math.hypot(busAX,busAZ);
+ stress+=Math.max(0,motion-1.1)*dt*5+Math.max(0,jerk-1.15)*dt*11;
+ stress-=dt*(inp.x||inp.z?5.5:2.0);
+ stress=clamp(stress,0,100);
+ shake=Math.max(0,stress/100*.7+jerk*.045);
+ impactFlash=Math.max(0,impactFlash-dt);
+ $('time').textContent=elapsed.toFixed(1)+'초';
+ $('meterFill').style.width=stress+'%';
+ $('meterFill').style.background=stress>72?'#ff625d':stress>42?'#f3bd52':'#66d69a';
+ $('state').textContent=stress>82?'위험!':stress>60?'휘청거림':stress>35?'불안정':'안정';
+ if(stress>58)$('message').style.color='#ffdf9b';else $('message').style.color='#fff';
+ if(stress>=100||Math.abs(leanX)>0.78||Math.abs(leanZ)>0.78)endGame();
+}
+function poly(points,fill,stroke=null,lw=1){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}}
+function line(points,color,width=1){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke()}
+function draw(){
+ const t=performance.now()/1000,shakeX=(Math.random()-.5)*shake*12,shakeY=(Math.random()-.5)*shake*8;
+ ctx.save();ctx.translate(shakeX,shakeY);
+ const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#7e9eae');sky.addColorStop(.52,'#bac4bf');sky.addColorStop(1,'#293b44');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ // Perspective bus cabin.
+ const cx=W*.5,top=H*.13,bottom=H*1.08,wideTop=Math.min(W*.28,175),wideBot=W*.67;
+ poly([[cx-wideBot, H*1.05],[cx-wideTop,top],[cx+wideTop,top],[cx+wideBot,H*1.05]],'#303c43');
+ // windshield / front window
+ poly([[cx-wideTop*.8,top+H*.03],[cx+wideTop*.8,top+H*.03],[cx+wideTop*1.15,H*.36],[cx-wideTop*1.15,H*.36]],'#8db4c0');
+ // vague city outside
+ for(let i=0;i<10;i++){let xx=cx-wideTop+(i*37+t*18)%(wideTop*2);let yy=H*.2+(i%3)*15;ctx.fillStyle=i%2?'#8c9b9b':'#b1b7ab';ctx.fillRect(xx,yy,12+i%3*5,H*.12)}
+ // side walls
+ poly([[cx-wideBot,H*1.05],[cx-wideTop,top],[cx-wideTop*1.1,H*.36],[cx-wideBot*.92,H*.94]],'#53636a');
+ poly([[cx+wideBot,H*1.05],[cx+wideTop,top],[cx+wideTop*1.1,H*.36],[cx+wideBot*.92,H*.94]],'#53636a');
+ // side windows
+ for(let i=0;i<4;i++){
+  const yy=H*(.2+i*.105),ww=wideTop+(i*W*.09);
+  poly([[cx-ww,yy],[cx-ww*.66,yy-H*.055],[cx-ww*.62,yy+H*.035],[cx-ww*1.02,yy+H*.055]],'#9cc5cd','#d5d9d1',2);
+  poly([[cx+ww,yy],[cx+ww*.66,yy-H*.055],[cx+ww*.62,yy+H*.035],[cx+ww*1.02,yy+H*.055]],'#9cc5cd','#d5d9d1',2);
+ }
+ // floor
+ poly([[cx-wideTop*.45,H*.35],[cx+wideTop*.45,H*.35],[cx+wideBot*.92,H*1.02],[cx-wideBot*.92,H*1.02]],'#777b77','#c3c3b8',2);
+ // floor seams
+ for(let i=1;i<8;i++){let y=H*(.35+Math.pow(i/8,1.65)*.65);let half=wideTop*.45+(wideBot*.47)*(i/8);line([[cx-half,y],[cx+half,y]],'#a5a59b',1)}
+ // handrails in perspective
+ const rail='#d9b75d';line([[cx-wideTop*.55,H*.16],[cx-wideBot*.68,H*.99]],rail,Math.max(3,W*.005));line([[cx+wideTop*.55,H*.16],[cx+wideBot*.68,H*.99]],rail,Math.max(3,W*.005));
+ line([[cx-wideTop*.55,H*.18],[cx+wideTop*.55,H*.18]],rail,Math.max(3,W*.005));
+ // overhead rail crossbars and hanging straps
+ for(let i=0;i<7;i++){let p=i/7,yy=H*(.18+p*.24),xx=wideTop*.52+p*W*.17;line([[cx-xx,yy],[cx+xx,yy]],'#d9b75d',Math.max(2,W*.004));for(let s of [-1,1]){let hx=cx+s*xx*.7;line([[hx,yy],[hx,yy+H*(.05+p*.02)]],'#d9b75d',2);ctx.beginPath();ctx.ellipse(hx,yy+H*(.055+p*.02),5+p*2,8+p*2,0,0,Math.PI*2);ctx.strokeStyle=rail;ctx.lineWidth=2;ctx.stroke()}}
+ // seats left and right, draw farther first
+ for(let row=3;row>=0;row--){
+  const p=(row+1)/5,yy=H*(.34+p*.15),ww=wideTop*.45+p*wideBot*.30,sh=H*(.055+p*.025),sw=W*(.045+p*.055);
+  for(let side of [-1,1]){
+   const sx=cx+side*ww;
+   poly([[sx-side*sw*.5,yy],[sx+side*sw*.5,yy],[sx+side*sw*.55,yy+sh],[sx-side*sw*.55,yy+sh]],row%2?'#a95d4e':'#ba6b57','#623e39',1);
+   poly([[sx-side*sw*.48,yy-sh*.72],[sx+side*sw*.48,yy-sh*.72],[sx+side*sw*.5,yy+sh*.1],[sx-side*sw*.5,yy+sh*.1]],'#bd7864','#623e39',1);
+   line([[sx-side*sw*.55,yy+sh],[sx-side*sw*.55,yy+sh*1.3]],'#d5d2c6',3);
+  }
+ }
+ // silhouette passengers
+ for(let i=0;i<5;i++){const p=(i+1)/7,px=cx+(i%2?1:-1)*(wideTop*.3+p*wideBot*.27),py=H*(.34+p*.25),sc=.45+p*.75;ctx.save();ctx.translate(px,py);ctx.scale(sc,sc);ctx.fillStyle=['#283843','#384f5d','#4a4842'][i%3];ctx.beginPath();ctx.ellipse(0,-30,10,12,0,0,Math.PI*2);ctx.fill();ctx.fillRect(-12,-18,24,38);line([[-7,-12],[-20,-2],[ -17,12]],'#d5b17b',5);line([[7,-12],[18,-3],[16,10]],'#d5b17b',5);ctx.restore()}
+ // player shadow and character, x/z affect position, perspective scaling
+ const scale=clamp(.8+z*.08,.68,1.1),px=cx+x*W*.16,py=H*.76-z*H*.045;
+ ctx.save();ctx.translate(px,py);ctx.scale(scale,scale);
+ ctx.fillStyle='#0005';ctx.beginPath();ctx.ellipse(0,10,30,10,0,0,Math.PI*2);ctx.fill();
+ const lean=leanX*-.38,forward=leanZ*.32;
+ // legs
+ line([[-8,0],[-12,34],[-17,57]],'#202b33',9);line([[8,0],[12,34+forward*5],[18,57]],'#202b33',9);
+ poly([[-27,55],[-12,55],[-10,62],[-30,62]],'#1c2228');poly([[9,55],[24,55],[29,62],[11,62]],'#1c2228');
+ // torso tilted
+ ctx.save();ctx.translate(0,-19);ctx.rotate(lean+forward*.15);
+ poly([[-16,-17],[14,-17],[20,17],[15,36],[-15,36],[-20,16]],'#e3a53f','#4b3d2c',2);
+ // shirt details
+ line([[-1,-12],[-1,25]],'#f4d38b',2);
+ // arms counterbalance
+ line([[-14,-9],[-29,-1-leanX*14],[-35,10-leanX*16]],'#e3a53f',7);
+ line([[14,-9],[28,-3+leanX*12],[34,8+leanX*15]],'#e3a53f',7);
+ // neck/head
+ ctx.fillStyle='#dba47e';ctx.fillRect(-5,-27,10,13);ctx.beginPath();ctx.ellipse(0,-39,13,15,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#332b29';ctx.beginPath();ctx.arc(0,-44,13,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(-12,-44,24,5);
+ // face
+ ctx.fillStyle='#2c2524';ctx.fillRect(-6,-40,3,2);ctx.fillRect(4,-40,3,2);line([[-3,-32],[3,-32]],'#854d42',1.5);
+ ctx.restore();ctx.restore();
+ // vignette and event edge cue
+ const vg=ctx.createRadialGradient(cx,H*.55,Math.min(W,H)*.2,cx,H*.55,Math.max(W,H)*.72);vg.addColorStop(0,'#0000');vg.addColorStop(1,'#07121c88');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+ if(impactFlash>0){ctx.fillStyle=`rgba(255,220,140,${impactFlash*.22})`;ctx.fillRect(0,0,W,H)}
+ ctx.restore();
+}
+let last=performance.now();
+function loop(now){let dt=Math.min((now-last)/1000,.04);last=now;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
